@@ -2427,6 +2427,13 @@ module Bro
             unless t
                 t = resolve_type0(owner, type, allow_arrays, method, generic, struct_member)
                 raise "Failed to resolve type '#{type.spelling}' with kind #{type.kind} defined at #{Bro.location_to_s(type.declaration.location)}" unless t
+                # tsbMobile: a class or protocol that no YAML configures (neither this one nor an
+                # include) would be written as a bare name that compiles only if some other package
+                # happens to import it. It is an unresolved type; the member is skipped and logged.
+                unconfigured = unconfigured_type_name(t)
+                if unconfigured
+                    raise "Failed to resolve type '#{type.spelling}': #{unconfigured} is configured in no YAML (this one or its includes) — add an entry or an include"
+                end
                 if t.is_a?(Typedef) && t.is_callback?
                     # Callback.
                     t = Bro.builtins_by_name('FunctionPtr')
@@ -2434,6 +2441,17 @@ module Bro
                 @type_cache[cache_id] = t if type.spelling != 'instancetype'
             end
             t
+        end
+
+        # The name of the first class or protocol inside t (a Pointer, a generic Array, or the
+        # entity itself) that no YAML configures, or nil.
+        def unconfigured_type_name(t)
+            case t
+            when Pointer then unconfigured_type_name(t.pointee)
+            when Array then t.map { |e| unconfigured_type_name(e) }.compact.first
+            when ObjCClass then get_class_conf(t.name) ? nil : t.name
+            when ObjCProtocol then get_protocol_conf(t.name) ? nil : t.name
+            end
         end
 
         def resolve_type0(owner, type, allow_arrays, _method, _generic, _struct_member)
@@ -4455,6 +4473,10 @@ yaml_files.each do |yaml_file|
                 lines += ["#{indentation}@GlobalValue(symbol=\"#{v.name}\", optional=true)", "public static native void #{java_name}(#{marshaler}#{java_type} v);"]
             end
             lines
+        rescue RuntimeError => err
+            raise unless err.message.start_with?('Failed to resolve type')
+            log.w "WARN: skipping value #{v.name}: #{err.message}"
+            []
         end.flatten.join("\n    ")
 
         methods_s += "\n    }" unless last_static_class.nil?
@@ -4779,6 +4801,9 @@ yaml_files.each do |yaml_file|
 
             methods_lines.concat(lines)
             constructors_lines.concat(constructor_lines)
+        rescue RuntimeError => err
+            raise unless err.message.start_with?('Failed to resolve type')
+            log.w "WARN: skipping function #{f.name}: #{err.message}"
         end
 
         # dump all inline functions 
