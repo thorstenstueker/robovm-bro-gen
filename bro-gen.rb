@@ -4402,7 +4402,12 @@ yaml_files.each do |yaml_file|
 
         if c && !c['exclude'] && !c['transitive'] && !struct.is_outdated?
             name = c['name'] || struct.name
-            template_datas[name] = struct.is_opaque? ? opaque_to_java(model, {}, name, c) : struct_to_java(model, {}, name, struct, c)
+            begin
+                template_datas[name] = struct.is_opaque? ? opaque_to_java(model, {}, name, c) : struct_to_java(model, {}, name, struct, c)
+            rescue RuntimeError => err
+                raise unless err.message.start_with?('Failed to resolve type')
+                log.w "WARN: skipping struct #{name}: #{err.message} — a struct cannot lose a member, so exclude it in the YAML and delete its file"
+            end
         end
     end
     model.typedefs.each do |td|
@@ -4418,7 +4423,12 @@ yaml_files.each do |yaml_file|
         end
 
         name = c['name'] || td.name
-        template_datas[name] = !struct || struct.is_opaque? ? opaque_to_java(model, {}, name, c) : struct_to_java(model, {}, name, struct, c)
+        begin
+            template_datas[name] = !struct || struct.is_opaque? ? opaque_to_java(model, {}, name, c) : struct_to_java(model, {}, name, struct, c)
+        rescue RuntimeError => err
+            raise unless err.message.start_with?('Failed to resolve type')
+            log.w "WARN: skipping struct #{name}: #{err.message} — a struct cannot lose a member, so exclude it in the YAML and delete its file"
+        end
     end
 
     # Assign global values to classes
