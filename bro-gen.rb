@@ -2453,7 +2453,8 @@ module Bro
             when ObjCId then t.types.map { |e| unconfigured_type_name(e) }.compact.first
             when ObjCClass then get_class_conf(t.name) ? nil : t.name
             when ObjCProtocol then get_protocol_conf(t.name) ? nil : t.name
-            when Struct, Typedef then get_class_conf(t.name) ? nil : t.name   # structs, opaque types and typedefs are configured under classes:
+            when Struct then get_class_conf(t.name) ? nil : t.name              # structs and opaque types are configured under classes:
+            when Typedef then get_class_conf(t.name) || @conf_typedefs.key?(t.name) ? nil : t.name   # or mapped under typedefs: (OSStatus: OSStatus)
             when Enum then get_enum_conf(t.name) ? nil : t.name
             end
         end
