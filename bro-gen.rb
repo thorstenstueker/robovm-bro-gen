@@ -2448,6 +2448,9 @@ module Bro
         # The name of the first class or protocol inside t (a Pointer, a generic Array, or the
         # entity itself) that no YAML configures, or nil.
         def unconfigured_type_name(t)
+            # a name the YAML maps a typedef to (matrix_float4x3: MatrixFloat4x4) is promised to exist,
+            # generated or hand-written
+            return nil if t.respond_to?(:name) && @conf_typedefs.value?(t.name)
             case t
             when Pointer then unconfigured_type_name(t.pointee)
             when ::Array then t.map { |e| unconfigured_type_name(e) }.compact.first
