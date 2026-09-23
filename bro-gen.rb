@@ -3401,6 +3401,17 @@ def get_generic_type(model, owner, method, type, index, conf_type, name = nil)
     end
 end
 
+# A member typed with a class of a framework that is not included is skipped, not fatal: the
+# tsbMobile fork binds 22 frameworks and everything else is deliberately absent. The skip is
+# logged as "WARN: skipping ..." so that generate.sh can keep the list under version control.
+def with_unresolved_skipped(what)
+    yield
+rescue RuntimeError => e
+    raise unless e.message.start_with?('Failed to resolve type')
+    log.w "WARN: skipping #{what}: #{e.message}"
+    nil
+end
+
 def property_to_java(model, owner, prop, conf, seen, adapter = false)
     return [] if prop.is_outdated?
 
@@ -5347,13 +5358,15 @@ yaml_files.each do |yaml_file|
                 full_name = (m.is_a?(Bro::ObjCClassMethod) ? '+' : '-') + m.name
                 members_conf = c['methods'] || {}
                 method_conf = model.get_conf_for_key(full_name, members_conf)
-                a = method_to_java(model, owner_name, owner, prot, m, method_conf || {}, {}, true, c['class'])
+                a = with_unresolved_skipped("#{owner_name} #{full_name}") { method_to_java(model, owner_name, owner, prot, m, method_conf || {}, {}, true, c['class']) }
+                next unless a
                 methods_lines.concat(a[0])
             end
             # TODO: temporaly don't add static properties to interfaces
             members.find_all { |m| m.is_a?(Bro::ObjCProperty) && m.is_available? && !(m.is_static? && owner.is_a?(Bro::ObjCProtocol))}.each do |p|
                 conf = model.get_conf_for_key(p.name, c['properties'] || {}) || {}
-                properties_lines.concat(property_to_java(model, owner, p, conf, {}, true))
+                pl = with_unresolved_skipped("#{owner_name} #{p.full_name}") { property_to_java(model, owner, p, conf, {}, true) }
+                properties_lines.concat(pl) if pl
             end
         end
 
@@ -5511,7 +5524,8 @@ yaml_files.each do |yaml_file|
                 # apply default methods configuration (global for all classes)
                 method_conf ||= model.get_conf_for_key(full_name, model.default_config("methods") || {})
 
-                a = method_to_java(model, owner_name, owner, method_owner, m, method_conf || {}, seen, false, members_conf['class'], inherited_initializers)
+                a = with_unresolved_skipped("#{owner_name} #{full_name}") { method_to_java(model, owner_name, owner, method_owner, m, method_conf || {}, seen, false, members_conf['class'], inherited_initializers) }
+                next unless a
                 methods_lines.concat(a[0])
                 constructors_lines.concat(a[1])
 
@@ -5528,7 +5542,8 @@ yaml_files.each do |yaml_file|
             # TODO: temporaly don't add static properties to interfaces
             members.find_all { |m| m.is_a?(Bro::ObjCProperty) && m.is_available? && !(m.is_static? && owner.is_a?(Bro::ObjCProtocol))}.each do |p|
                 prop_conf, prop_owner = resolve_member_config(model, owner, p, member_owner: members_owner, conf_key:"properties", include_protocols: true)
-                properties_lines.concat(property_to_java(model, owner, p, prop_conf || {}, seen))
+                pl = with_unresolved_skipped("#{owner_name} #{p.full_name}") { property_to_java(model, owner, p, prop_conf || {}, seen) }
+                properties_lines.concat(pl) if pl
             end
         end
 
