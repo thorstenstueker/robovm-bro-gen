@@ -2448,7 +2448,8 @@ module Bro
         def unconfigured_type_name(t)
             case t
             when Pointer then unconfigured_type_name(t.pointee)
-            when Array then t.map { |e| unconfigured_type_name(e) }.compact.first
+            when ::Array then t.map { |e| unconfigured_type_name(e) }.compact.first
+            when Array then unconfigured_type_name(t.base_type)
             when ObjCClass then get_class_conf(t.name) ? nil : t.name
             when ObjCProtocol then get_protocol_conf(t.name) ? nil : t.name
             end
