@@ -1404,7 +1404,7 @@ module Bro
         # CGImageProperty dictionaries) — so the configuration is taken from whichever entry has it.
         def add_value(v)
             vconf = v.conf
-            @methods ||= vconf['methods']
+            @methods = (@methods || {}).merge(vconf['methods']) if vconf['methods']
             @constructor_visibility ||= vconf['constructor_visibility']
             @values.push v
         end
