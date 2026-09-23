@@ -1398,6 +1398,17 @@ module Bro
             @values = [first]
         end
 
+        # A dictionary is usually named by several value entries of the YAML, and only one of them
+        # carries the accessor configuration. Which entry is met first depends on the order of the
+        # SDK headers, which changes between SDKs (iOS 27 moved UIAccessibilityConstants.h and the
+        # CGImageProperty dictionaries) — so the configuration is taken from whichever entry has it.
+        def add_value(v)
+            vconf = v.conf
+            @methods ||= vconf['methods']
+            @constructor_visibility ||= vconf['constructor_visibility']
+            @values.push v
+        end
+
         def is_foundation?
             !%w(CFType CFString CFNumber).include? @java_type
         end
@@ -3191,7 +3202,7 @@ module Bro
                 if @global_value_dictionaries[v.dictionary].nil?
                     @global_value_dictionaries[v.dictionary] = GlobalValueDictionaryWrapper.new self, v.dictionary, @global_value_enums[v.enum], v
                 else
-                    @global_value_dictionaries[v.dictionary].values.push v
+                    @global_value_dictionaries[v.dictionary].add_value v
                 end
             end
             # Filter out global values that belong to an enumeration or dictionary wrapper
