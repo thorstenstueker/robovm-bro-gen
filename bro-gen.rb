@@ -2434,7 +2434,9 @@ module Bro
                     # Callback.
                     t = Bro.builtins_by_name('FunctionPtr')
                 end
-                unconfigured = unconfigured_type_name(t)
+                # a spelling the YAML maps under typedefs: (matrix_float4x3: MatrixFloat4x4) is configured by that line
+                spelling = type.spelling.gsub(/\s*\bconst\b\s*/, '').sub(/^(struct|union|enum)\s*/, '').sub(/\s*\*$/, '')
+                unconfigured = @conf_typedefs.key?(spelling) ? nil : unconfigured_type_name(t)
                 if unconfigured
                     raise "Failed to resolve type '#{type.spelling}': #{unconfigured} is configured in no YAML (this one or its includes) — add an entry or an include"
                 end
@@ -2454,7 +2456,7 @@ module Bro
             when ObjCClass then get_class_conf(t.name) ? nil : t.name
             when ObjCProtocol then get_protocol_conf(t.name) ? nil : t.name
             when Struct then get_class_conf(t.name) ? nil : t.name              # structs and opaque types are configured under classes:
-            when Typedef then get_class_conf(t.name) || @conf_typedefs.key?(t.name) ? nil : t.name   # or mapped under typedefs: (OSStatus: OSStatus)
+            when Typedef then get_class_conf(t.name) || @conf_typedefs.key?(t.name) || @conf_typed_enums.key?(t.name) ? nil : t.name   # or mapped under typedefs: / typed_enums:
             when Enum then get_enum_conf(t.name) ? nil : t.name
             end
         end
