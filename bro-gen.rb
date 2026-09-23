@@ -3886,7 +3886,9 @@ LONG_MAX = 0x7fff_ffff_ffff_ffff
 LONG_MIN = (-0x7fff_ffff_ffff_ffff-1)
 
 $mac_version = nil
-$ios_version = '26.1'
+# tsbMobile: the SDK level to generate for comes from the environment (the fork's generate.sh
+# sets it to `xcrun --sdk iphoneos --show-sdk-version`); the literal is only the fallback.
+$ios_version = ENV['BRO_IOS_VERSION'] || '26.1'
 $ios_version_min_usable = '8.0' # minimal version robovm to be used on, all since notification will be suppressed if ver < 8.0
 $target_platform = 'ios'
 xcode_dir = `xcode-select -p`.chomp
