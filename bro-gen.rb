@@ -2430,13 +2430,13 @@ module Bro
                 # tsbMobile: a class or protocol that no YAML configures (neither this one nor an
                 # include) would be written as a bare name that compiles only if some other package
                 # happens to import it. It is an unresolved type; the member is skipped and logged.
-                unconfigured = unconfigured_type_name(t)
-                if unconfigured
-                    raise "Failed to resolve type '#{type.spelling}': #{unconfigured} is configured in no YAML (this one or its includes) — add an entry or an include"
-                end
                 if t.is_a?(Typedef) && t.is_callback?
                     # Callback.
                     t = Bro.builtins_by_name('FunctionPtr')
+                end
+                unconfigured = unconfigured_type_name(t)
+                if unconfigured
+                    raise "Failed to resolve type '#{type.spelling}': #{unconfigured} is configured in no YAML (this one or its includes) — add an entry or an include"
                 end
                 @type_cache[cache_id] = t if type.spelling != 'instancetype'
             end
@@ -2450,8 +2450,11 @@ module Bro
             when Pointer then unconfigured_type_name(t.pointee)
             when ::Array then t.map { |e| unconfigured_type_name(e) }.compact.first
             when Array then unconfigured_type_name(t.base_type)
+            when ObjCId then t.types.map { |e| unconfigured_type_name(e) }.compact.first
             when ObjCClass then get_class_conf(t.name) ? nil : t.name
             when ObjCProtocol then get_protocol_conf(t.name) ? nil : t.name
+            when Struct, Typedef then get_class_conf(t.name) ? nil : t.name   # structs, opaque types and typedefs are configured under classes:
+            when Enum then get_enum_conf(t.name) ? nil : t.name
             end
         end
 
